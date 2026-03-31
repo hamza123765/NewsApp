@@ -2,6 +2,7 @@ import { View, TextInput, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function SearchBar() {
+export default function SearchBar({ value, onChangeText }) {
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={18} color="#9ca3af" />
@@ -9,6 +10,8 @@ export default function SearchBar() {
         placeholder="Search"
         style={styles.input}
         placeholderTextColor="#9ca3af"
+        value={value}
+        onChangeText={onChangeText}
       />
     </View>
   );
@@ -29,4 +32,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
+});
 });
