@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +8,8 @@ import {
   ScrollView,
   FlatList,
 } from "react-native"; 
+  ActivityIndicator,
+} from "react-native";
 
 import SearchBar from "../components/SearchBar";
 import CategoryChip from "../components/CategoryChip";
@@ -17,16 +20,48 @@ import { useNavigation } from "@react-navigation/native";//nnnnnn
 import { breakingNewsData } from "../data/breakingNewsData";
 import { newsData } from "../data/newsData";
 import { trendingCategories } from "../data/trendingCategories";
+import { fetchLatestNews, searchNews } from "../services/newsApi";
 
 export default function HomeScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [query, setQuery] = useState("");
+  const [latestNews, setLatestNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const breakingRef = useRef(null);
   const navigation = useNavigation();//hhhhh
+
+  useEffect(() => {
+    const loadNews = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const data = query.trim()
+          ? await searchNews(query.trim(), 20)
+          : await fetchLatestNews(20);
+
+        setLatestNews(data);
+      } catch (apiError) {
+        setError("Failed to load news from backend. Showing demo data.");
+        setLatestNews(newsData);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const timeout = setTimeout(loadNews, 350);
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const breakingNews = useMemo(() => latestNews.slice(0, 5), [latestNews]);
+
   const onBreakingScroll = (event) => {
     const slideWidth = event.nativeEvent.layoutMeasurement.width;
     const index = Math.round(
       event.nativeEvent.contentOffset.x / slideWidth
     );
+    const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
     setActiveIndex(index);
   };
 
@@ -39,6 +74,9 @@ export default function HomeScreen() {
       >
         {/* Search */}
         <SearchBar />
+        <SearchBar value={query} onChangeText={setQuery} />
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {/* Breaking News */}
         <Text style={styles.sectionTitle}>Breaking News</Text>
@@ -55,16 +93,33 @@ export default function HomeScreen() {
           onScroll={onBreakingScroll}
           scrollEventThrottle={16}
         />
+        {loading ? (
+          <ActivityIndicator size="small" color="#dd4040" style={styles.loader} />
+        ) : (
+          <FlatList
+            ref={breakingRef}
+            data={breakingNews}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => <BreakingNewsCard item={item} />}
+            onScroll={onBreakingScroll}
+            scrollEventThrottle={16}
+          />
+        )}
 
         {/* Dot Indicators */}
         <View style={styles.dotsContainer}>
           {breakingNewsData.map((_, index) => (
+          {breakingNews.map((_, index) => (
             <View
               key={index}
               style={[
                 styles.dot,
                 activeIndex === index && styles.activeDot,
               ]}
+              style={[styles.dot, activeIndex === index && styles.activeDot]}
             />
           ))}
         </View>
@@ -73,6 +128,7 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>
           Trending Right Now
         </Text>
+        <Text style={styles.sectionTitle}>Trending Right Now</Text>
         <FlatList
           data={trendingCategories}
           horizontal
@@ -83,6 +139,7 @@ export default function HomeScreen() {
               title={item.title}
               active={index === 0}
             />
+            <CategoryChip title={item.title} active={index === 0} />
           )}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
@@ -92,6 +149,11 @@ export default function HomeScreen() {
         {newsData.map((item) => (
           <LatestNewsItem key={item.id} item={item} />
         ))}
+        {loading ? (
+          <ActivityIndicator size="small" color="#dd4040" style={styles.loader} />
+        ) : (
+          latestNews.map((item) => <LatestNewsItem key={item.id} item={item} />)
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -128,6 +190,13 @@ const styles = StyleSheet.create({
   activeDot: {
     backgroundColor: "#dd4040",
     width: 10,
+  },
+  loader: {
+    marginVertical: 10,
+  },
+  error: {
+    color: "#b91c1c",
+    marginBottom: 4,
   },
 });
 
